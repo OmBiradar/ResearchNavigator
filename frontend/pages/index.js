@@ -1,4 +1,4 @@
-import TimeDisplay from '../components/TimeDisplay';
+import ChatInterface from '../components/ChatInterface';
 import Head from 'next/head';
 
 export default function Home() {
@@ -6,12 +6,12 @@ export default function Home() {
     <>
       <Head>
         <title>Research Navigator</title>
-        <meta name="description" content="Research Navigator application" />
+        <meta name="description" content="Research Navigator - Your AI research assistant" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main>
-        <TimeDisplay />
+        <ChatInterface />
       </main>
     </>
   );
