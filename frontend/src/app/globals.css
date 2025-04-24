@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@reference "tailwindcss/theme.css";
+
+/* If you're using daisyUI, also add: */
+@plugin "daisyui";
+
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 249, 250, 251;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  height: 100vh;
+}
+
+@layer components {
+  .chat-bubble {
+    @apply p-4 rounded-lg max-w-[85%] mb-2;
+  }
+  
+  .user-bubble {
+    @apply chat-bubble bg-primary text-white self-end;
+  }
+  
+  .assistant-bubble {
+    @apply chat-bubble bg-white border border-gray-200 self-start text-black;
+  }
+  
+  .temp-message-bubble {
+    @apply chat-bubble bg-blue-50 border border-gray-200 self-start text-black;
+  }
+  
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-colors;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-accent;
+  }
+  
+  .input-field {
+    @apply w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+}
