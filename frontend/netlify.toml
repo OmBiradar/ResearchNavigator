@@ -1,21 +1,10 @@
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = "out"
 
-# Enable Next.js functionality on Netlify
-[build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_API_BASE_URL"
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
-# Handle routing for Next.js app
-[[redirects]]
-  from = "/*"
-  to = "/_next/static/:splat"
-  status = 200
-  force = false
-  conditions = {Path = "/_next/static/**"}
-
-# All other routes go through index
 [[redirects]]
   from = "/*"
   to = "/index.html"
