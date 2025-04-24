@@ -13,16 +13,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+# Read allowed origins from environment variable or use default values
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,https://researchnavigator.netlify.app').split(',')
+
 # Configure CORS with explicit settings for streaming endpoints
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5000"],
+        "origins": ALLOWED_ORIGINS,
         "supports_credentials": True,
         "expose_headers": ["Content-Type", "X-CSRFToken"],
         "allow_headers": ["Content-Type", "Authorization"]
     },
     r"/ping": {
-        "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+        "origins": ALLOWED_ORIGINS,
         "methods": ["GET"],
         "allow_headers": ["Content-Type"]
     }
@@ -177,8 +181,42 @@ def simple_chat():
         "token": response
     })
 
+def get_ssl_context():
+    """
+    Get SSL context for HTTPS.
+    
+    To generate self-signed certificates for testing:
+    1. openssl req -x509 -newkey rsa:4096 -nodes -out cert.pem -keyout key.pem -days 365
+    2. Place cert.pem and key.pem in the same directory as this script or specify path
+    
+    For production, use certificates from a proper Certificate Authority (e.g., Let's Encrypt)
+    """
+    cert_path = os.getenv('SSL_CERT_PATH', 'cert.pem')
+    key_path = os.getenv('SSL_KEY_PATH', 'key.pem')
+    
+    if os.path.exists(cert_path) and os.path.exists(key_path):
+        return (cert_path, key_path)
+    else:
+        print("WARNING: SSL certificate or key file not found.")
+        print(f"Looking for: {cert_path} and {key_path}")
+        print("HTTPS will not be available. Server will run in HTTP mode only.")
+        return None
+
 if __name__ == '__main__':
     print("Server starting...")
     print(f"API key {'found' if api_key else 'NOT FOUND'}")
     print(f"Model {'initialized' if rag_chain else 'NOT initialized'}")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print(f"Allowed origins: {ALLOWED_ORIGINS}")
+    
+    # Get port from environment variable or use default
+    port = int(os.getenv('PORT', 5000))
+    
+    # Try to use HTTPS if certificates are available
+    ssl_context = get_ssl_context()
+    if ssl_context:
+        print("HTTPS enabled. Server will run with SSL/TLS.")
+        app.run(host='0.0.0.0', port=port, ssl_context=ssl_context, debug=False)
+    else:
+        print("HTTPS not available. Running in HTTP mode.")
+        print("To enable HTTPS, generate SSL certificates or provide paths in environment variables.")
+        app.run(host='0.0.0.0', port=port, debug=False)
