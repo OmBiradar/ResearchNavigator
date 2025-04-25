@@ -33,6 +33,23 @@ body {
     @apply chat-bubble bg-blue-50 border border-gray-200 self-start text-black;
   }
   
+  /* Source links styling */
+  .sources-section {
+    @apply mt-4 border-t border-gray-200 pt-3;
+  }
+  
+  .sources-title {
+    @apply font-medium text-gray-700 mb-2;
+  }
+  
+  .sources-links {
+    @apply flex flex-wrap gap-2;
+  }
+  
+  .source-link {
+    @apply bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition-colors flex items-center gap-1 border border-blue-200;
+  }
+  
   .btn {
     @apply px-4 py-2 rounded-md font-medium transition-colors;
   }
