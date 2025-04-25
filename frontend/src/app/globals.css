@@ -45,3 +45,59 @@ body {
     @apply w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
   }
 }
+
+/* Markdown styling overrides for chat bubbles */
+.assistant-bubble .prose,
+.temp-message-bubble .prose {
+  @apply max-w-none;
+}
+
+.assistant-bubble .prose p:last-child,
+.temp-message-bubble .prose p:last-child {
+  @apply mb-0;
+}
+
+.assistant-bubble .prose p:first-child,
+.temp-message-bubble .prose p:first-child {
+  @apply mt-0;
+}
+
+.assistant-bubble .prose pre,
+.temp-message-bubble .prose pre {
+  @apply bg-gray-100 rounded-md p-2 text-sm overflow-x-auto;
+}
+
+.assistant-bubble .prose code,
+.temp-message-bubble .prose code {
+  @apply bg-gray-100 px-1 py-0.5 rounded text-sm;
+}
+
+.assistant-bubble .prose h1, 
+.assistant-bubble .prose h2,
+.assistant-bubble .prose h3,
+.assistant-bubble .prose h4,
+.temp-message-bubble .prose h1,
+.temp-message-bubble .prose h2,
+.temp-message-bubble .prose h3,
+.temp-message-bubble .prose h4 {
+  @apply font-bold my-2;
+}
+
+.assistant-bubble .prose ul,
+.assistant-bubble .prose ol,
+.temp-message-bubble .prose ul,
+.temp-message-bubble .prose ol {
+  @apply my-2 pl-5;
+}
+
+.assistant-bubble .prose table,
+.temp-message-bubble .prose table {
+  @apply text-sm my-2 border-collapse;
+}
+
+.assistant-bubble .prose th,
+.assistant-bubble .prose td,
+.temp-message-bubble .prose th,
+.temp-message-bubble .prose td {
+  @apply border border-gray-300 p-1;
+}

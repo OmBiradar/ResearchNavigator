@@ -4,6 +4,8 @@ import FileAttachment from './FileAttachment';
 import PDFGenerator from './PDFGenerator';
 import ServerStatus from './ServerStatus';
 import { API_ENDPOINTS } from '../config/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -294,7 +296,11 @@ const ResearchNavigator: React.FC<ResearchNavigatorProps> = ({ title = 'Research
         {isStreamActive && currentResponseText && (
           <div className="flex flex-col items-start mb-4">
             <div className="temp-message-bubble">
-              <div id="temp-message">{currentResponseText}</div>
+              <div id="temp-message" className="prose prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {currentResponseText}
+                </ReactMarkdown>
+              </div>
             </div>
             <span className="text-xs text-gray-500 mt-1">
               {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
