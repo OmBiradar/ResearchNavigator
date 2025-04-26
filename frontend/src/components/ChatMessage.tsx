@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   isUser: boolean;
@@ -44,7 +46,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ isUser, message, timestamp })
       
       return (
         <>
-          <div dangerouslySetInnerHTML={{ __html: processSearchQuestions(mainContent) }} />
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {mainContent}
+            </ReactMarkdown>
+          </div>
           
           {sourceLinks.length > 0 && (
             <div className="sources-section">
@@ -68,8 +74,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ isUser, message, timestamp })
       );
     }
     
-    // If no sources section, process for search questions and return
-    return <div dangerouslySetInnerHTML={{ __html: processSearchQuestions(message) }} />;
+    // If no sources section, render with ReactMarkdown
+    return (
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {message}
+        </ReactMarkdown>
+      </div>
+    );
   }, [isUser, message]);
 
   return (

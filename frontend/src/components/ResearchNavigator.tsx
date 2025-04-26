@@ -3,6 +3,7 @@ import ChatMessage from './ChatMessage';
 import FileAttachment from './FileAttachment';
 import PDFGenerator from './PDFGenerator';
 import ServerStatus from './ServerStatus';
+import WelcomeDialog from './WelcomeDialog';
 import { API_ENDPOINTS } from '../config/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,17 +19,62 @@ interface ResearchNavigatorProps {
   title?: string;
 }
 
+const welcomeMessage = `
+# Hello! I'm Research Navigator – Your AI Research Assistant
+
+Great question! I'm designed to help you with pretty much any stage of the research process. Think of me as a tool to accelerate your understanding and discovery. Here's a breakdown of what I can do, categorized for clarity:
+
+1. **Information Gathering & Summarization:**
+   * **Answering Questions:** I can answer your questions on a *huge* range of topics. I leverage a massive dataset of text and code, allowing me to provide informative and comprehensive responses. I strive for accuracy, but remember I'm an AI and should be used as a starting point, not a sole source.
+   * **Summarizing Text:** Provide me with articles, papers, reports, or even long web pages, and I can condense them into concise summaries. You can specify the desired length or focus of the summary.
+
+2. **Research Support & Idea Generation:**
+   * **Brainstorming:** Stuck on a topic? I can help you brainstorm potential research questions, angles, or keywords.
+   * **Identifying Research Gaps:** I can analyze existing information to help you pinpoint areas where further research is needed.
+   * **Exploring Different Perspectives:** I can present different viewpoints on a controversial topic, helping you develop a well-rounded understanding.
+   * **Generating Outlines:** I can create outlines for papers, presentations, or reports based on your topic.
+
+3. **Writing & Refinement:**
+   * **Drafting Text:** I can generate initial drafts of text based on your instructions. *However, always carefully review and edit anything I produce!* I'm a tool to help you get started, not to replace your own writing and critical thinking.
+   * **Paraphrasing:** I can reword text to help you avoid plagiarism (but *always* cite your sources!).
+   * **Improving Clarity & Style:** I can suggest ways to improve the clarity, conciseness, and overall style of your writing.
+
+**Important Considerations & Limitations:**
+* I am not a substitute for critical thinking. Always evaluate the information I provide and verify it with reliable sources.
+* My knowledge is based on the data I was trained on. This data has a cutoff point (currently around early 2023), so I may not have information about very recent events or discoveries.
+* I can sometimes generate incorrect or inaccurate information. This is known as "hallucination."
+* I do not have access to paywalled content. I can't directly access articles behind subscription walls.
+
+To get the best results from me, please:
+* Be specific with your requests.
+* Provide context. Tell me what you're working on and what you're trying to achieve.
+* Ask follow-up questions. I can refine my responses based on your feedback.
+
+I'm here to help you navigate the world of research. What can I help you with today?
+`;
+
 const ResearchNavigator: React.FC<ResearchNavigatorProps> = ({ title = 'Research Navigator' }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([{
+    id: 'welcome',
+    isUser: false,
+    text: welcomeMessage,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }]);
   const [inputMessage, setInputMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPdfGenerator, setShowPdfGenerator] = useState(false);
   const [pdfContent, setPdfContent] = useState('');
   const [currentResponseText, setCurrentResponseText] = useState('');
   const [isStreamActive, setIsStreamActive] = useState(false);
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const responseTextRef = useRef(''); // Use ref to avoid race conditions
+
+  // Show welcome dialog on component mount
+  useEffect(() => {
+    setShowWelcomeDialog(true);
+  }, []);
 
   // Scroll to bottom whenever messages change or currentResponseText updates
   useEffect(() => {
@@ -266,6 +312,12 @@ const ResearchNavigator: React.FC<ResearchNavigatorProps> = ({ title = 'Research
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
+      {/* Welcome Dialog */}
+      <WelcomeDialog 
+        isOpen={showWelcomeDialog} 
+        onClose={() => setShowWelcomeDialog(false)} 
+      />
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between w-full">

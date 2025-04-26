@@ -16,6 +16,22 @@ body {
   height: 100vh;
 }
 
+/* Animation for welcome dialog */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
 @layer components {
   .chat-bubble {
     @apply p-4 rounded-lg max-w-[85%] mb-2;

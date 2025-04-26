@@ -9,7 +9,9 @@ from langchain_core.prompts import PromptTemplate
 from langchain.schema import StrOutputParser
 from dotenv import load_dotenv
 # New imports for web search functionality
-from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from duckduckgo_search import DDGS  # Updated to use DDGS class directly
+import time  # For implementing backoff/retry
+import random  # For jittering retry times
 from langchain_core.runnables import RunnablePassthrough
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -37,7 +39,7 @@ class WebRAG:
             model="models/embedding-001",
             google_api_key=google_api_key
         )
-        self.search = DuckDuckGoSearchAPIWrapper()
+        self.search = DDGS()  # Using the updated DDGS class
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200
@@ -115,25 +117,91 @@ class WebRAG:
     def search_and_load(self, query: str, num_results: int = 3) -> List[str]:
         """Perform DuckDuckGo search and load webpage contents"""
         logger.info(f"Searching the web for: {query}")
-        search_results = self.search.results(query, num_results)
         
-        # Store URLs and titles for the current search
+        # Implement retry with exponential backoff
+        max_retries = 3
+        base_wait = 2  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                # Using the new DDGS().text() method instead of results()
+                search_results = self.search.text(
+                    query, 
+                    region='wt-wt',  # Worldwide results
+                    safesearch='Off', 
+                    max_results=num_results
+                )
+                
+                # Convert to list since text() returns a generator
+                search_results = list(search_results)
+                
+                if search_results:
+                    break  # Success! Exit the retry loop
+                
+                logger.warning(f"Attempt {attempt+1}: No results returned from DuckDuckGo")
+                
+                if attempt < max_retries - 1:
+                    # Only wait if we're going to retry
+                    wait_time = base_wait * (2 ** attempt) + random.uniform(0, 1)  # Exponential backoff with jitter
+                    logger.info(f"Waiting {wait_time:.2f}s before retry...")
+                    time.sleep(wait_time)
+                    
+            except Exception as e:
+                logger.error(f"Attempt {attempt+1}: DuckDuckGo search error: {str(e)}")
+                if attempt < max_retries - 1:
+                    wait_time = base_wait * (2 ** attempt) + random.uniform(0, 1)
+                    logger.info(f"Waiting {wait_time:.2f}s before retry...")
+                    time.sleep(wait_time)
+        
+        # Process search results
         urls = []
+        self.current_search_urls = []  # Reset current search URLs
+        
+        if not search_results:
+            logger.warning(f"All attempts failed. No search results found for: {query}")
+            return []
         
         for result in search_results:
-            url = result["link"]
-            title = result.get("title", url)
+            # Extract fields from the search result
+            # DDGS().text() returns dict with different structure
+            title = result.get("title", "")
+            url = result.get("href", "")  # In text() results, the URL is in href field
+            snippet = result.get("body", "")
+            
+            if not url:
+                continue
+                
             domain = urlparse(url).netloc
             
+            # Skip invalid URLs or DuckDuckGo's own pages
+            if "duckduckgo.com" in domain:
+                logger.warning(f"Skipping DuckDuckGo URL: {url}")
+                continue
+                
+            # Skip results with "EOF" in the title
+            if title == "EOF" or "EOF" in title:
+                logger.warning(f"Skipping result with EOF in title: {url}")
+                continue
+            
+            # Skip empty or very short titles
+            if not title or len(title) < 3:
+                title = f"Source from {domain}"
+                
             # Add URL and title to the current search list
             self.current_search_urls.append({
                 "url": url,
                 "title": title,
-                "domain": domain
+                "domain": domain,
+                "snippet": snippet
             })
             
             urls.append(url)
             logger.info(f"Found result from domain: {domain}, title: {title}")
+        
+        # If no valid URLs were found, return early
+        if not urls:
+            logger.warning(f"No valid search results after filtering for: {query}")
+            return []
         
         # Load webpages
         try:
@@ -141,18 +209,40 @@ class WebRAG:
             documents = loader.load()
             logger.info(f"Loaded {len(documents)} documents from web search")
             
+            # Skip if no documents were loaded
+            if not documents:
+                logger.warning(f"No content loaded from URLs: {urls}")
+                return []
+            
             # Split documents
             splits = self.text_splitter.split_documents(documents)
             
             # Create or update vectorstore
             if self.vectorstore is None:
-                self.vectorstore = Chroma.from_documents(
-                    documents=splits,
-                    embedding=self.embeddings,
-                    persist_directory="./web_chroma_db"
-                )
+                try:
+                    self.vectorstore = Chroma.from_documents(
+                        documents=splits,
+                        embedding=self.embeddings,
+                        persist_directory="./web_chroma_db"
+                    )
+                except Exception as e:
+                    logger.error(f"Error creating vectorstore: {str(e)}")
+                    return []
             else:
-                self.vectorstore.add_documents(splits)
+                try:
+                    self.vectorstore.add_documents(splits)
+                except Exception as e:
+                    logger.error(f"Error adding documents to vectorstore: {str(e)}")
+                    # Try to re-initialize the vectorstore as a fallback
+                    try:
+                        self.vectorstore = Chroma.from_documents(
+                            documents=splits,
+                            embedding=self.embeddings,
+                            persist_directory="./web_chroma_db"
+                        )
+                    except Exception as e2:
+                        logger.error(f"Error re-initializing vectorstore: {str(e2)}")
+                        return []
                 
             return splits
         except Exception as e:
@@ -162,27 +252,37 @@ class WebRAG:
     def query(self, question: str) -> str:
         """Process query through RAG pipeline"""
         # First search and load relevant content
-        try:
-            # Clear any previous search URLs
-            self.current_search_urls = []
-            
+        try:            
             # Generate multiple search questions
             search_questions = self.generate_search_questions(question)
             
             # Search for each question
             all_urls_set = set()  # Track unique URLs to avoid duplicates
+            search_success = False  # Track if any search was successful
+            
             for search_question in search_questions:
                 logger.info(f"Searching for question: {search_question}")
-                self.search_and_load(search_question)
+                results = self.search_and_load(search_question)
+                if results:  # If we got any valid results
+                    search_success = True
                 
                 # Keep track of unique URLs for citation
                 current_urls = {source["url"] for source in self.current_search_urls}
                 all_urls_set.update(current_urls)
             
-            # Create retriever function
+            # If no successful searches or vectorstore is still None, return early with a friendly message
+            if not search_success or self.vectorstore is None:
+                logger.warning("No valid search results found or vectorstore not initialized")
+                return "I couldn't find reliable information about this topic from web searches. Please try a different question or be more specific."
+            
+            # Create retriever function with proper error handling
             def retrieve_context(question):
-                docs = self.vectorstore.similarity_search(question, k=5)  # Increased to get more context
-                return "\n".join([doc.page_content for doc in docs])
+                try:
+                    docs = self.vectorstore.similarity_search(question, k=5)
+                    return "\n".join([doc.page_content for doc in docs])
+                except Exception as e:
+                    logger.error(f"Error retrieving context: {str(e)}")
+                    return "Error retrieving context information."
 
             # Create RAG chain
             rag_chain = (
@@ -198,15 +298,18 @@ class WebRAG:
             # Get the answer from the RAG chain
             answer = rag_chain.invoke(question)
             
-            # Format the search URLs as markdown links and append to the answer
-            if self.current_search_urls:
+            # Only append sources if we have valid sources and didn't get a "couldn't find information" response
+            if self.current_search_urls and "couldn't find relevant information" not in answer.lower():
                 sources_section = "\n\n**Sources:**\n"
                 for i, source in enumerate(self.current_search_urls):
-                    title = source["title"] or f"Source {i+1}"
-                    url = source["url"]
+                    title = source.get("title") or f"Source {i+1}"
+                    url = source.get("url")
                     sources_section += f"- [{title}]({url})\n"
                 
                 answer += sources_section
+            
+            # Clean up any unexpected EOF markers that might be in the response
+            answer = answer.replace("EOF", "").strip()
             
             return answer
         except Exception as e:
